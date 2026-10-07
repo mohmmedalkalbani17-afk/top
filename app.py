@@ -3,7 +3,16 @@ from google import genai
 from google.genai import types
 
 # إعداد العميل
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+import streamlit as st
+
+# قراءة المفتاح من Streamlit Secrets
+api_key = st.secrets.get("GEMINI_API_KEY")
+
+if not api_key:
+    st.error("الرجاء إضافة GEMINI_API_KEY في إعدادات Secrets!")
+    st.stop()
+
+client = genai.Client(api_key=api_key)
 
 # تعليمات النظام لضمان حل المسائل الرياضية باللغة العربية
 system_instruction = """
@@ -42,3 +51,5 @@ while True:
     response = chat.send_message(user_input)
     print(f"\nالبوت:\n{response.text}\n")
     print("-" * 50)
+
+
