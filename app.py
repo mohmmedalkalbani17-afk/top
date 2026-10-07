@@ -1,30 +1,44 @@
-import streamlit as st
+import os
+from google import genai
+from google.genai import types
 
-# إعدادات الصفحة
-st.set_page_config(page_title="M7 Chatbot", page_icon="🤖", layout="centered")
+# إعداد العميل
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
-st.title("🤖 M7 Chatbot")
-st.caption("🚀 نموذج شات بوت تفاعلي جاهز")
+# تعليمات النظام لضمان حل المسائل الرياضية باللغة العربية
+system_instruction = """
+أنت خبير ومتخصص في حل جميع المسائل الرياضية بمختلف مستوياتها (جبر، هندسة، تفاضل وتكامل، إحصاء).
+اتبع القواعد التالية:
+1. اشرك المستخدم بالشرح باللغة العربية الفصحى الواضحة.
+2. حدد المعطيات والمطلوب أولاً.
+3. حل المسألة خطوة بخطوة مع توضيح القوانين المستخدمة.
+4. استخدم رموز LaTeX للمعادلات الرياضية.
+5. ضع النتيجة النهائية في السطر الأخير بشكل واضح.
+"""
 
-# تهيئة سجل المحادثة في الـ Session State
-if "messages" not in st.session_state:
-    st.session_state["messages"] = [
-        {"role": "assistant", "content": "أهلاً بك! كيف يمكنني مساعدتك اليوم؟"}
-    ]
+# إنشاء جلسة المحادثة (Chat Session)
+chat = client.chats.create(
+    model="gemini-2.5-flash",
+    config=types.GenerateContentConfig(
+        system_instruction=system_instruction,
+        temperature=0.2, # قيمة منخفضة لضمان الدقة الرياضية
+    )
+)
 
-# عرض الرسائل السابقة
-for msg in st.session_state.messages:
-    st.chat_message(msg["role"]).write(msg["content"])
+print("مرحباً بك! أنا مساعدك الرياضي. اكتب مسألتك أو اكتب 'خروج' للإنهاء.\n")
 
-# استقبال مدخلات المستخدم
-if user_input := st.chat_input("اكتب رسالتك هنا..."):
-    # إضافة رسالة المستخدم للسجل وعرضها
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    st.chat_message("user").write(user_input)
-
-    # رد تجريبي تلقائي من البوت
-    bot_response = f"أهلاً بك! استلمت رسالتك: '{user_input}'"
+# حلقة التفاعل المستمرة
+while True:
+    user_input = input("أنت: ")
     
-    # إضافة رد البوت للسجل وعرضه
-    st.session_state.messages.append({"role": "assistant", "content": bot_response})
-    st.chat_message("assistant").write(bot_response)
+    if user_input.strip().lower() in ["خروج", "exit", "quit"]:
+        print("تم إغلاق المحادثة. بالتوفيق!")
+        break
+        
+    if not user_input.strip():
+        continue
+
+    # إرسال الرسالة والحصول على الرد ضمن نفس الجلسة
+    response = chat.send_message(user_input)
+    print(f"\nالبوت:\n{response.text}\n")
+    print("-" * 50)
