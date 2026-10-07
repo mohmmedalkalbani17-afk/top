@@ -1,52 +1,63 @@
-import os
-from google import genai
-from google.genai import types
-
-# إعداد العميل
 import streamlit as st
 from google import genai
 
-# قراءة المفتاح من st.secrets مباشرة
-api_key = st.secrets["GEMINI_API_KEY"]
+# ضبط إعدادات الصفحة
+st.set_page_config(page_title="حلول الرياضيات الذكية 🧮", page_icon="🧮", layout="centered")
 
+st.title("🧮 المعلم الذكي لحل المسائل والمعادلات الرياضية")
+st.write("أدخل المعادلة أو المسألة الرياضية باللغة العربية وسأقوم بحلها مع شرح الخطوات بالتفصيل!")
+
+# قراءة مفتاح الـ API من Secrets
+api_key = st.secrets.get("GEMINI_API_KEY")
+
+if not api_key:
+    st.error("⚠️ لم يتم العثور على مفتاح GEMINI_API_KEY. يرجى إضافته في إعدادات Secrets على Streamlit Cloud.")
+    st.stop()
+
+# إنشاء العميل
 client = genai.Client(api_key=api_key)
 
-# تعليمات النظام لضمان حل المسائل الرياضية باللغة العربية
-system_instruction = """
-أنت خبير ومتخصص في حل جميع المسائل الرياضية بمختلف مستوياتها (جبر، هندسة، تفاضل وتكامل، إحصاء).
-اتبع القواعد التالية:
-1. اشرك المستخدم بالشرح باللغة العربية الفصحى الواضحة.
-2. حدد المعطيات والمطلوب أولاً.
-3. حل المسألة خطوة بخطوة مع توضيح القوانين المستخدمة.
-4. استخدم رموز LaTeX للمعادلات الرياضية.
-5. ضع النتيجة النهائية في السطر الأخير بشكل واضح.
+# تعليمات توجيه البوت (System Instructions)
+SYSTEM_INSTRUCTION = """
+أنت معلم رياضيات خبير ومساعد ذكي.
+مهمتك:
+1. حل المعادلة أو المسألة الرياضية المطلوبة بدقة متناهية.
+2. تقديم الشرح والخطوات باللغة العربية الواضحة وبشكل منظم ومبسط.
+3. استخدام تنسيق LaTeX للرموز والمعادلات الرياضية (مثل $x^2 + 5x + 6 = 0$) لتظهر بشكل منسق وواضح.
+4. إذا كانت المسألة تحتوي على أكثر من خطوة، قم بتقديم الحل على شكل خطوات ترقيمية متسلسلة.
 """
 
-# إنشاء جلسة المحادثة (Chat Session)
-chat = client.chats.create(
-    model="gemini-2.5-flash",
-    config=types.GenerateContentConfig(
-        system_instruction=system_instruction,
-        temperature=0.2, # قيمة منخفضة لضمان الدقة الرياضية
-    )
-)
+# تهيئة سجل المحادثة
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-print("مرحباً بك! أنا مساعدك الرياضي. اكتب مسألتك أو اكتب 'خروج' للإنهاء.\n")
+# عرض المحادثات السابقة
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-# حلقة التفاعل المستمرة
-while True:
-    user_input = input("أنت: ")
-    
-    if user_input.strip().lower() in ["خروج", "exit", "quit"]:
-        print("تم إغلاق المحادثة. بالتوفيق!")
-        break
-        
-    if not user_input.strip():
-        continue
+# استقبال المسألة الرياضية من المستخدم
+if prompt := st.chat_input("اكتب المعادلة هنا (مثال: احسب سين: 2x + 5 = 15)..."):
+    # عرض سؤال المستخدم
+    st.chat_message("user").markdown(prompt)
+    st.session_state.messages.append({"role": "user", "content": prompt})
 
-    # إرسال الرسالة والحصول على الرد ضمن نفس الجلسة
-    response = chat.send_message(user_input)
-    print(f"\nالبوت:\n{response.text}\n")
-    print("-" * 50)
+    # إرسال الطلب إلى Gemini مع التوجيهات
+    with st.spinner("جاري حل المسألة وكتابة الخطوات... ⏳"):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=f"{SYSTEM_INSTRUCTION}\n\nالمسألة المطلوبة:\n{prompt}",
+            )
+            
+            answer = response.text
 
+            # عرض رد البوت
+            with st.chat_message("assistant"):
+                st.markdown(answer)
+            
+            st.session_state.messages.append({"role": "assistant", "content": answer})
+
+        except Exception as e:
+            st.error(f"حدث خطأ أثناء الاتصال بالخدمة: {e}")
 
