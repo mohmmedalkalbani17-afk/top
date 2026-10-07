@@ -4,13 +4,10 @@ from google.genai import types
 
 # إعداد العميل
 import streamlit as st
+from google import genai
 
-# قراءة المفتاح من Streamlit Secrets
-api_key = st.secrets.get("GEMINI_API_KEY")
-
-if not api_key:
-    st.error("الرجاء إضافة GEMINI_API_KEY في إعدادات Secrets!")
-    st.stop()
+# قراءة المفتاح من st.secrets مباشرة
+api_key = st.secrets["GEMINI_API_KEY"]
 
 client = genai.Client(api_key=api_key)
 
